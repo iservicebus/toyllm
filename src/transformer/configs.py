@@ -9,12 +9,12 @@ summary: These are configurable components that can be re-used quite easily.
 import copy
 
 import torch.nn as nn
-
+import dataclasses
 from labml.configs import BaseConfigs, option, calculate, aggregate
 from labml_helpers.module import Module
 from .feed_forward import FeedForward
 from .mha import MultiHeadAttention
-from .models import EmbeddingsWithPositionalEncoding, EmbeddingsWithLearnedPositionalEncoding, TransformerLayer, \
+from .modules import EmbeddingsWithPositionalEncoding, EmbeddingsWithLearnedPositionalEncoding, TransformerLayer, \
     Encoder, Decoder, Generator, EncoderDecoder
 
 
@@ -324,3 +324,31 @@ def _tgt_embed_without_positional(c: TransformerConfigs):
 @option(TransformerConfigs.encoder_decoder, 'default')
 def _encoder_decoder(c: TransformerConfigs):
     return EncoderDecoder(c.encoder, c.decoder, c.src_embed, c.tgt_embed, c.generator)
+
+
+
+@dataclasses.dataclass
+class Configs:
+    """
+    ### Configurations
+    """
+    chars_size: int = 100
+    d_model: int = 64
+#    d_model: int = 128
+#    d_model: int = 512
+
+    seq_len: int = 128
+    batch_size: int = 32
+
+    n_layers: int = 6
+    n_heads: int = 2
+#    n_heads: int = 4
+#    n_heads: int = 8
+
+    dropout: float = 0.1
+    d_ff: int = 2048
+    glu_variant: str = 'GLU'
+#    epochs: int = 5
+    epochs: int = 1
+
+    grad_norm_clip: float = 0.5
