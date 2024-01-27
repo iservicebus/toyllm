@@ -11,6 +11,10 @@ summary: >
 Originated from https://github.com/labmlai/annotated_deep_learning_paper_implementations
 
 """
+
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 import math
 
 import torch

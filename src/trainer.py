@@ -1,6 +1,3 @@
-
-
-import dataclasses
 import torch
 from labml_helpers.module import Module
 from torch import nn
@@ -11,37 +8,8 @@ from labml.logger import Text
 from labml.utils.download import download_file
 from labml_nn.experiments.nlp_autoregression import transpose_batch
 from labml_nn.optimizers.noam import Noam
-from model.models import Encoder, MultiHeadAttention, TransformerLayer, EmbeddingsWithPositionalEncoding
-from model.feed_forward import FeedForward
-from utils import subsequent_mask
-
-
-
-@dataclasses.dataclass
-class Configs:
-    """
-    ### Configurations
-    """
-    d_model: int = 64
-#    d_model: int = 128
-#    d_model: int = 512
-
-    seq_len: int = 128
-    batch_size: int = 32
-
-    n_layers: int = 6
-    n_heads: int = 2
-#    n_heads: int = 4
-#    n_heads: int = 8
-
-    dropout: float = 0.1
-    d_ff: int = 2048
-    glu_variant: str = 'GLU'
-#    epochs: int = 5
-    epochs: int = 1
-
-    grad_norm_clip: float = 0.5
-
+from models.autoregressive import AutoregressiveModel
+from models.modelconfigs import ModelConfigs
 
 
 class TinyShakespeareDataset(Dataset):
@@ -51,8 +19,8 @@ class TinyShakespeareDataset(Dataset):
 
     def __init__(self, seq_len: int):
         # Location of the text file
-    #    path = '../data/tiny_shakespeare.txt'
-        path = '../data/tiny_data.txt'
+        path = '../data/tiny_shakespeare.txt'
+    #    path = '../data/tiny_data.txt'
         # Read the downloaded file
         with open(str(path), 'r') as f:
             text = f.read()
@@ -88,60 +56,18 @@ class TinyShakespeareDataset(Dataset):
         """
         return self.data[idx:idx + self.seq_len], self.data[idx + 1:idx + self.seq_len + 1]
 
-
-
-class AutoregressiveModel(Module):
-    """
-    ## Auto regressive model
-    """
-
-    def __init__(self):
-        super().__init__()
-
-        configs = Configs()
-        dataset = TinyShakespeareDataset(configs.seq_len)
-        # Number of different characters
-        n_chars = len(dataset.stoi)
-
-        # FFN with ReLU activation
-        # $$FFN_{ReLU}(x)(x, W_1, W_2, b_1, b_2) = \text{ReLU}_1(x W_1 + b_1) W_2 + b_2$$
-        ffn = FeedForward(configs.d_model, configs.d_ff, configs.dropout, nn.ReLU())
-
-        # Initialize [Multi-Head Attention module](../mha.html)
-        mha = MultiHeadAttention(configs.n_heads, configs.d_model, configs.dropout)
-
-        # Initialize the [Transformer Block](../models.html#TransformerLayer)
-        transformer_layer = TransformerLayer(d_model=configs.d_model, self_attn=mha, src_attn=None,
-                                             feed_forward=ffn, dropout_prob=configs.dropout)
-
-        self.src_embed = EmbeddingsWithPositionalEncoding(configs.d_model, n_chars)
-        self.encoder = Encoder(transformer_layer, configs.n_layers)
-        self.generator = nn.Linear(configs.d_model, n_chars)
-        # This will be initialized on the first call
-        self.src_mask = None
-
-    def forward(self, src: torch.Tensor):
-        # Create subsequent mask, so that the transformer can only pay attention to past tokens.
-        if self.src_mask is None or self.src_mask.size(0) != len(src):
-            self.src_mask = subsequent_mask(len(src)).to(src.device)
-        # Embed the tokens (`src`) and run it through the the transformer
-        res = self.encoder(self.src_embed(src), self.src_mask)
-        # Generate logits of the next token
-        return self.generator(res)
-
-
 class Trainer:
     """
     ## Trainer
     """
 
-    def __init__(self, configs: Configs):
+    def __init__(self, configs: ModelConfigs, dataset: TinyShakespeareDataset):
         # Get the device
         self.device = torch.device('cpu')
         if torch.cuda.is_available():
             self.device = torch.device('cuda:0')
         # Initialize the dataset
-        self.dataset = TinyShakespeareDataset(configs.seq_len)
+        self.dataset = dataset
         # Initialize the dataloader
         self.dataloader = DataLoader(self.dataset,
                                      batch_size=configs.batch_size,
@@ -153,8 +79,8 @@ class Trainer:
         # (with fixed positional encoding)
         # [transformer encoder](../models.html#Encoder) and
         # a linear layer to generate logits.
-        self.model = AutoregressiveModel()
-
+        self.model = AutoregressiveModel(configs)
+        self.model.load_state_dict(torch.load('../build/model.pth'))
         # Move the model to the current device
         self.model.to(self.device)
 
@@ -238,6 +164,7 @@ class Trainer:
 
                 # Generate a sample
                 if (i + 1) % 100 == 0:
+                    torch.save(self.model.state_dict(), '../build/model.pth')
                     self.model.eval()
                     with torch.no_grad():
                         self.sample()
@@ -248,22 +175,47 @@ class Trainer:
 
             # Save the model
             experiment.save_checkpoint()
-        checkpoint = {'model': AutoregressiveModel(), 'state_dict': self.model.state_dict(), 'optimizer' : self.optimizer.state_dict()}
-        torch.save(checkpoint, '../build/checkpoint.pth')
+       # checkpoint = {'model': AutoregressiveModel(), 'state_dict': self.model.state_dict(), 'optimizer' : self.optimizer.state_dict()}
+        #torch.save(checkpoint, '../build/checkpoint.pth')
+        #torch.save(self.model, '../build/model.pth')
 
-        #torch.save(self.model.state_dict(), '../build/model.pth')
+        torch.save(self.model.state_dict(), '../build/model.pth')
+        #torch.save(self.model, '../build/model.pth')
+
         #experiment.add_artifact(file_or_directory='../build/model.pth')        
 
 def main():
     # Create experiment
     experiment.create(name="glu_variants")
+
     # Create configs
-    configs = Configs()
+    configs = ModelConfigs()
+
+    dataset = TinyShakespeareDataset(configs.seq_len)
+   
+     # Number of different characters
+    n_chars = len(dataset.stoi)
+    configs.n_tokens= n_chars
+   
     # Load configurations
-    experiment.configs(dataclasses.asdict(configs))
+
+    # Override configurations
+    experiment.configs(configs, {
+        # Batch size
+        'batch_size': 2,
+        # Sequence length of $32$. We use a short sequence length to train faster.
+        # Otherwise it takes forever to train.
+        #'seq_len': 32,
+
+        # Train for 1024 epochs.
+        #'epochs': 1024,
+
+        # Transformer configurations (same as defaults)
+        #'d_model': 128,
+    })
 
     # Create trainer
-    trainer = Trainer(configs)
+    trainer = Trainer(configs, dataset)
     # Set models for training and loading
     experiment.add_pytorch_models({'model': trainer.model})
 
