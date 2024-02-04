@@ -11,14 +11,20 @@
     ```
 
 2. In the top level directory run:
+
     ```bash
     pip install --user  .
- or   ```
-    ```bash
+
+    or
+
     pip install -r requirements.txt    
+    
     ```
-3. Train the model:
-    ```bash
+
+
+3. Train the model
+   
+ ```bash
     cd ./src/training
     python tiny_trainer.py
     ```
