@@ -9,7 +9,6 @@
 
 import torch
 import torch.nn as nn
-from torch.nn import  CrossEntropyLoss
 
 from typing import Optional, Tuple, Union
 from transformers.activations import ACT2FN
@@ -29,9 +28,6 @@ class Transformer(nn.Module):
         self.config = config
         self.embedding = Embedding(config)
         self.embed_dim = config.n_embd
-
-        self.wte = nn.Embedding(config.vocab_size, self.embed_dim)
-        self.wpe = nn.Embedding(config.n_positions, self.embed_dim)
 
         self.drop = nn.Dropout(config.embd_pdrop)
         self.h = nn.ModuleList([ClassicBlock(config,self.is_cross_attention) for i in range(config.n_layer)])
@@ -103,11 +99,6 @@ class Transformer(nn.Module):
         return head_mask
 
 
-    def get_input_embeddings(self):
-        return self.wte
-
-    def set_input_embeddings(self, new_embeddings):
-        self.wte = new_embeddings
 
     def forward(
         self,

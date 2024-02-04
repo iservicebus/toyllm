@@ -92,8 +92,9 @@ class ModelConfig:
         n_positions=1024,
         n_embd=768,
         n_layer=12,
-        n_head=8,
-        n_inner=None,
+        n_head=12,
+        n_inner=5,
+        bias = True,
         activation_function="gelu_new",
         resid_pdrop=0.1,
         embd_pdrop=0.1,
@@ -124,6 +125,7 @@ class ModelConfig:
         self.n_layer = n_layer
         self.n_head = n_head
         self.n_inner = n_inner
+        self.bias = bias
         self.activation_function = activation_function
         self.resid_pdrop = resid_pdrop
         self.embd_pdrop = embd_pdrop

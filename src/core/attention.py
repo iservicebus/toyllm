@@ -9,7 +9,6 @@
 
 import torch
 import torch.nn as nn
-from torch.nn import  CrossEntropyLoss
 
 from typing import Optional, Tuple, Union
 from transformers.activations import ACT2FN
